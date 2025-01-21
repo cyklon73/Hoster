@@ -6,6 +6,7 @@ import de.cyklon.hoster.util.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
@@ -25,12 +26,18 @@ public class Version {
     public static final Map<String, String> PAPER;
 
     static {
-        FirefoxDriver driver = new FirefoxDriver();
-        VANILLA = readGetBukkitOrg(driver, "vanilla");
-        CRAFTBUKKIT = readGetBukkitOrg(driver, "craftbukkit");
-        SPIGOT = readGetBukkitOrg(driver, "spigot");
+        RemoteWebDriver driver = new ChromeDriver();
+        VANILLA = readGetBukkitOrg(driver, "vanilla-");
+        CRAFTBUKKIT = readGetBukkitOrg(driver, "craftbukkit-");
+        SPIGOT = readGetBukkitOrg(driver, "spigot-");
         PAPER = readPaper();
+        System.out.println(readGetBukkitOrg(driver, "craftbukkit"));
         driver.close();
+    }
+
+    public static void main(String[] args) {
+        //System.out.println(VANILLA);
+
     }
 
     private static Map<String, String> readPaper() {
@@ -59,28 +66,35 @@ public class Version {
     }
 
     private static Map<String, String> readGetBukkitOrg(RemoteWebDriver driver, String type) {
+        if (type.endsWith("-")) return null;
         Map<String, String> versionUrls = new LinkedHashMap<>();
         driver.get("https://getbukkit.org/download/" + type + "/version");
 
-        List<WebElement> elements = driver.findElement(By.id("download")).findElement(By.cssSelector("col-md-12 download")).findElements(By.className("download-pane"));
+        List<WebElement> elements = driver.findElement(By.id("download")).findElement(By.cssSelector("div[class='col-md-12 download']")).findElements(By.className("download-pane"));
 
         for (WebElement element : elements) {
-            element = element.findElement(By.cssSelector("row vdivide"));
+            element = element.findElement(By.cssSelector("div[class='row vdivide']"));
             String version = null, url = null;
             for (WebElement e : element.findElements(By.cssSelector("*"))) {
                 List<WebElement> h4 = e.findElements(By.tagName("h4"));
                 if (!h4.isEmpty()) {
-                    String label = h4.get(0).getDomAttribute("innerText");
-                    if ("version".equalsIgnoreCase(label)) version = e.findElement(By.tagName("h2")).getDomAttribute("innerText");
+                    String label = h4.get(0).getDomProperty("innerText");
+                    if ("version".equalsIgnoreCase(label)) version = e.findElement(By.tagName("h2")).getDomProperty("innerText");
                 } else {
                     List<WebElement> btnGroup = e.findElements(By.className("btn-group"));
                     if (!btnGroup.isEmpty()) {
-                        url = btnGroup.get(0).findElement(By.className("btn-download")).getDomAttribute("href");
+                        url = btnGroup.get(0).findElement(By.className("btn-download")).getDomProperty("href");
                     }
                 }
             }
             if (version != null && url != null) versionUrls.put(version, url);
         }
+
+        versionUrls.forEach((k, v) -> {
+            driver.get(v);
+            versionUrls.put(k, driver.findElement(By.id("get-download")).findElement(By.className("well")).findElement(By.tagName("h2")).findElement(By.tagName("a")).getDomProperty("href"));
+
+        });
         return versionUrls;
     }
 }
